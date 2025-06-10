@@ -277,16 +277,110 @@
         box.innerHTML = `
           <label>Resenär ${i + 1} namn (EFTERNAMN/FÖRNAMN):</label>
           <input type="text" id="name_${i}" placeholder="ERIKSSON/JOHAN">
+          
+          <label>Födelsedatum (DDMMMMYY):</label>
+          <input type="text" id="birthdate_${i}" placeholder="15JAN95" onchange="updatePassengerType(${i})">
+          
           <label>Titel:</label>
-          <select id="title_${i}">
-            <option value="MR">MR</option>
-            <option value="MRS">MRS</option>
-            <option value="MISS">MISS</option>
-            <option value="CHD">CHD (barn)</option>
-            <option value="INF">INF (spädbarn)</option>
+          <select id="title_${i}" onchange="handleTitleChange(${i})">
+            <option value="MR">MR (Herr)</option>
+            <option value="MRS">MRS (Fru)</option>
+            <option value="MISS">MISS (Fröken)</option>
+            <option value="CHD">CHD (Barn 2-11 år)</option>
+            <option value="INF">INF (Spädbarn 0-23 mån)</option>
           </select>
+          
+          <div id="infantInfo_${i}" style="display: none; background: #f9f9f9; padding: 10px; margin-top: 5px; border-radius: 4px;">
+            <label style="font-weight: bold;">Spädbarn ${i + 1}:</label><br>
+            <input type="radio" id="infantLap_${i}" name="infantSeat_${i}" value="lap" checked>
+            <label for="infantLap_${i}">I knät (gratis, 0-23 månader)</label><br>
+            <input type="radio" id="infantSeat_${i}" name="infantSeat_${i}" value="seat">
+            <label for="infantSeat_${i}">Egen plats (kräver bilstol, 0-23 månader)</label>
+          </div>
+          
+          <div id="ageInfo_${i}" style="color: #666; font-size: 0.9em; margin-top: 5px;"></div>
         `;
         container.appendChild(box);
+      }
+    }
+
+    function calculateAge(birthdate) {
+      // Parse födelsedatum i format DDMMMMYY
+      if (!birthdate || birthdate.length < 7) return null;
+      
+      const day = parseInt(birthdate.substring(0, 2));
+      const monthStr = birthdate.substring(2, 5).toUpperCase();
+      const year = parseInt('20' + birthdate.substring(5, 7));
+      
+      const months = {
+        'JAN': 0, 'FEB': 1, 'MAR': 2, 'APR': 3, 'MAY': 4, 'JUN': 5,
+        'JUL': 6, 'AUG': 7, 'SEP': 8, 'OCT': 9, 'NOV': 10, 'DEC': 11
+      };
+      
+      if (!(monthStr in months) || isNaN(day) || isNaN(year)) return null;
+      
+      const birthDate = new Date(year, months[monthStr], day);
+      const today = new Date();
+      
+      let ageYears = today.getFullYear() - birthDate.getFullYear();
+      let ageMonths = today.getMonth() - birthDate.getMonth();
+      
+      if (ageMonths < 0 || (ageMonths === 0 && today.getDate() < birthDate.getDate())) {
+        ageYears--;
+        ageMonths += 12;
+      }
+      
+      if (today.getDate() < birthDate.getDate()) {
+        ageMonths--;
+      }
+      
+      return { years: ageYears, months: ageMonths };
+    }
+
+    function updatePassengerType(index) {
+      const birthdate = document.getElementById(`birthdate_${index}`).value.trim();
+      const titleSelect = document.getElementById(`title_${index}`);
+      const ageInfo = document.getElementById(`ageInfo_${index}`);
+      const infantInfo = document.getElementById(`infantInfo_${index}`);
+      
+      const age = calculateAge(birthdate);
+      
+      if (age) {
+        const totalMonths = age.years * 12 + age.months;
+        let recommendedTitle = '';
+        let ageText = '';
+        
+        if (totalMonths < 24) {
+          recommendedTitle = 'INF';
+          ageText = `Ålder: ${age.years} år, ${age.months} månader - Rekommenderat: Spädbarn (INF)`;
+        } else if (age.years < 12) {
+          recommendedTitle = 'CHD';
+          ageText = `Ålder: ${age.years} år, ${age.months} månader - Rekommenderat: Barn (CHD)`;
+        } else {
+          recommendedTitle = age.years < 18 ? 'MISS' : 'MR';
+          ageText = `Ålder: ${age.years} år, ${age.months} månader - Rekommenderat: Vuxen`;
+        }
+        
+        ageInfo.textContent = ageText;
+        
+        // Uppdatera titel automatiskt om den inte redan är manuellt vald
+        if (titleSelect.value !== recommendedTitle) {
+          titleSelect.value = recommendedTitle;
+          handleTitleChange(index);
+        }
+      } else {
+        ageInfo.textContent = '';
+      }
+    }
+
+    function handleTitleChange(index) {
+      const title = document.getElementById(`title_${index}`).value;
+      const infantInfo = document.getElementById(`infantInfo_${index}`);
+      
+      if (title === 'INF') {
+        infantInfo.style.display = 'block';
+      } else {
+        infantInfo.style.display = 'none';
       }
     }
 
@@ -377,7 +471,24 @@
         for (let i = 0; i < num; i++) {
           const name = document.getElementById(`name_${i}`).value.trim().toUpperCase();
           const title = document.getElementById(`title_${i}`).value.trim().toUpperCase();
-          output += `NM1${name}${title}\n`;
+          const birthdate = document.getElementById(`birthdate_${i}`).value.trim().toUpperCase();
+          
+          if (title === 'INF') {
+            const infantSeatType = document.querySelector(`input[name="infantSeat_${i}"]:checked`).value;
+            if (infantSeatType === 'lap') {
+              // Spädbarn i knät - lägg till utan egen plats
+              output += `NM1${name}${title}\n`;
+              if (birthdate) output += `SRDOB-${birthdate.replace(/(\d{2})(\w{3})(\d{2})/, '$1$2$3')}\n`;
+            } else {
+              // Spädbarn med egen plats
+              output += `NM1${name}${title}\n`;
+              if (birthdate) output += `SRDOB-${birthdate.replace(/(\d{2})(\w{3})(\d{2})/, '$1$2$3')}\n`;
+              output += `SREXST-INFANT SEAT\n`; // Extra seat för spädbarn
+            }
+          } else {
+            output += `NM1${name}${title}\n`;
+            if (birthdate) output += `SRDOB-${birthdate.replace(/(\d{2})(\w{3})(\d{2})/, '$1$2$3')}\n`;
+          }
         }
 
         ssrSet.forEach(ssr => output += ssr + "\n");
