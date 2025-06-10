@@ -43,6 +43,95 @@
   <label>Avresedatum (DDMMM):</label>
   <input type="text" id="date" placeholder="t.ex. 17JUL">
 
+  <label>Flygbolag:</label>
+  <select id="airline">
+    <option value="">-- Välj flygbolag --</option>
+    <optgroup label="Skandinaviska">
+      <option value="SK">SK - SAS</option>
+      <option value="DY">DY - Norwegian</option>
+      <option value="W6">W6 - Wizz Air</option>
+      <option value="FR">FR - Ryanair</option>
+    </optgroup>
+    <optgroup label="Europeiska">
+      <option value="LH">LH - Lufthansa</option>
+      <option value="AF">AF - Air France</option>
+      <option value="KL">KL - KLM</option>
+      <option value="BA">BA - British Airways</option>
+      <option value="IB">IB - Iberia</option>
+      <option value="AZ">AZ - Alitalia</option>
+      <option value="LX">LX - Swiss</option>
+      <option value="OS">OS - Austrian Airlines</option>
+      <option value="SN">SN - Brussels Airlines</option>
+      <option value="TP">TP - TAP Portugal</option>
+      <option value="A3">A3 - Aegean Airlines</option>
+      <option value="TK">TK - Turkish Airlines</option>
+    </optgroup>
+    <optgroup label="Nordamerikanska">
+      <option value="UA">UA - United Airlines</option>
+      <option value="AA">AA - American Airlines</option>
+      <option value="DL">DL - Delta Air Lines</option>
+      <option value="AC">AC - Air Canada</option>
+      <option value="WS">WS - WestJet</option>
+    </optgroup>
+    <optgroup label="Asiatiska">
+      <option value="TG">TG - Thai Airways</option>
+      <option value="SQ">SQ - Singapore Airlines</option>
+      <option value="CX">CX - Cathay Pacific</option>
+      <option value="JL">JL - Japan Airlines</option>
+      <option value="NH">NH - ANA</option>
+      <option value="KE">KE - Korean Air</option>
+      <option value="OZ">OZ - Asiana Airlines</option>
+    </optgroup>
+    <optgroup label="Mellanöstern">
+      <option value="EK">EK - Emirates</option>
+      <option value="QR">QR - Qatar Airways</option>
+      <option value="EY">EY - Etihad Airways</option>
+      <option value="MS">MS - EgyptAir</option>
+    </optgroup>
+    <optgroup label="Lågpris">
+      <option value="U2">U2 - easyJet</option>
+      <option value="VY">VY - Vueling</option>
+      <option value="EW">EW - Eurowings</option>
+      <option value="PC">PC - Pegasus Airlines</option>
+    </optgroup>
+    <optgroup label="Andra">
+      <option value="QF">QF - Qantas</option>
+      <option value="SA">SA - South African Airways</option>
+      <option value="ET">ET - Ethiopian Airlines</option>
+      <option value="LAN">LA - LATAM</option>
+    </optgroup>
+  </select>
+
+  <label>Flygnummer (valfritt):</label>
+  <input type="text" id="flightNumber" placeholder="t.ex. 1234">
+
+  <label>Bokningsklass:</label>
+  <select id="bookingClass">
+    <option value="Y">Y - Economy (standard)</option>
+    <option value="M">M - Economy (discounted)</option>
+    <option value="B">B - Economy (basic)</option>
+    <option value="H">H - Economy (high season)</option>
+    <option value="K">K - Economy (thrift)</option>
+    <option value="L">L - Economy (low season)</option>
+    <option value="Q">Q - Economy (group)</option>
+    <option value="T">T - Economy (excursion)</option>
+    <option value="E">E - Economy (restricted)</option>
+    <option value="N">N - Economy (promotional)</option>
+    <option value="R">R - Economy (supersaver)</option>
+    <option value="G">G - Economy (group discount)</option>
+    <option value="V">V - Economy (advance purchase)</option>
+    <option value="W">W - Premium Economy</option>
+    <option value="S">S - Premium Economy</option>
+    <option value="C">C - Business Class</option>
+    <option value="D">D - Business Class (discounted)</option>
+    <option value="I">I - Business Class (restricted)</option>
+    <option value="J">J - Business Class (premium)</option>
+    <option value="Z">Z - Business Class (full flex)</option>
+    <option value="P">P - First Class</option>
+    <option value="F">F - First Class (premium)</option>
+    <option value="A">A - First Class (discounted)</option>
+  </select>
+
   <label>Från (flygplats/stad):</label>
   <div class="airport-dropdown">
     <input type="text" id="from" placeholder="Skriv stad eller flygplats..." autocomplete="off">
@@ -278,8 +367,8 @@
           <label>Resenär ${i + 1} namn (EFTERNAMN/FÖRNAMN):</label>
           <input type="text" id="name_${i}" placeholder="ERIKSSON/JOHAN">
           
-          <label>Födelsedatum (DDMMMMYY):</label>
-          <input type="text" id="birthdate_${i}" placeholder="15JAN95" onchange="updatePassengerType(${i})">
+          <label>Födelsedatum (DDMMMMYYYY):</label>
+          <input type="text" id="birthdate_${i}" placeholder="15JAN1995" onchange="updatePassengerType(${i})">
           
           <label>Titel:</label>
           <select id="title_${i}" onchange="handleTitleChange(${i})">
@@ -305,12 +394,12 @@
     }
 
     function calculateAge(birthdate) {
-      // Parse födelsedatum i format DDMMMMYY
-      if (!birthdate || birthdate.length < 7) return null;
+      // Parse födelsedatum i format DDMMMMYYYY
+      if (!birthdate || birthdate.length < 9) return null;
       
       const day = parseInt(birthdate.substring(0, 2));
       const monthStr = birthdate.substring(2, 5).toUpperCase();
-      const year = parseInt('20' + birthdate.substring(5, 7));
+      const year = parseInt(birthdate.substring(5, 9));
       
       const months = {
         'JAN': 0, 'FEB': 1, 'MAR': 2, 'APR': 3, 'MAY': 4, 'JUN': 5,
@@ -332,6 +421,10 @@
       
       if (today.getDate() < birthDate.getDate()) {
         ageMonths--;
+        if (ageMonths < 0) {
+          ageMonths += 12;
+          ageYears--;
+        }
       }
       
       return { years: ageYears, months: ageMonths };
@@ -455,18 +548,30 @@
         const date = document.getElementById("date").value.trim().toUpperCase();
         const fromInput = document.getElementById("from");
         const toInput = document.getElementById("to");
+        const airline = document.getElementById("airline").value.trim();
+        const flightNumber = document.getElementById("flightNumber").value.trim();
+        const bookingClass = document.getElementById("bookingClass").value.trim();
 
         const from = fromInput.dataset.iata;
         const to = toInput.dataset.iata;
 
         if (!from || !to) throw new Error("Välj avreseort och destination från listan så att IATA-kod inkluderas.");
+        if (!airline) throw new Error("Välj flygbolag.");
 
         const phone = document.getElementById("contactPhone").value.trim();
         const email = document.getElementById("contactEmail").value.trim();
         const tktl = document.getElementById("tktlDate").value.trim().toUpperCase();
         const num = parseInt(document.getElementById('numPassengers').value);
 
+        // Skapa flight segment
+        let flightSegment = `${airline}`;
+        if (flightNumber) {
+          flightSegment += flightNumber;
+        }
+        flightSegment += `${bookingClass}${date}${from}${to}`;
+
         let output = `AN${date}${from}${to}\n`;
+        output += `SS1${flightSegment}NN1\n`;
 
         for (let i = 0; i < num; i++) {
           const name = document.getElementById(`name_${i}`).value.trim().toUpperCase();
@@ -478,16 +583,16 @@
             if (infantSeatType === 'lap') {
               // Spädbarn i knät - lägg till utan egen plats
               output += `NM1${name}${title}\n`;
-              if (birthdate) output += `SRDOB-${birthdate.replace(/(\d{2})(\w{3})(\d{2})/, '$1$2$3')}\n`;
+              if (birthdate) output += `SRDOB-${birthdate.replace(/(\d{2})(\w{3})(\d{4})/, '$1$2$3')}\n`;
             } else {
               // Spädbarn med egen plats
               output += `NM1${name}${title}\n`;
-              if (birthdate) output += `SRDOB-${birthdate.replace(/(\d{2})(\w{3})(\d{2})/, '$1$2$3')}\n`;
+              if (birthdate) output += `SRDOB-${birthdate.replace(/(\d{2})(\w{3})(\d{4})/, '$1$2$3')}\n`;
               output += `SREXST-INFANT SEAT\n`; // Extra seat för spädbarn
             }
           } else {
             output += `NM1${name}${title}\n`;
-            if (birthdate) output += `SRDOB-${birthdate.replace(/(\d{2})(\w{3})(\d{2})/, '$1$2$3')}\n`;
+            if (birthdate) output += `SRDOB-${birthdate.replace(/(\d{2})(\w{3})(\d{4})/, '$1$2$3')}\n`;
           }
         }
 
