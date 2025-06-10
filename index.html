@@ -5,12 +5,32 @@
   <title>Amadeus Bokningsgenerator</title>
   <style>
     body { font-family: sans-serif; max-width: 1000px; margin: auto; padding: 20px; }
-    input, select, textarea { width: 100%; margin-bottom: 10px; padding: 8px; }
+    input, select, textarea { width: 100%; margin-bottom: 10px; padding: 8px; box-sizing: border-box; }
     button { padding: 10px 20px; }
     .passenger-box { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
     .ssr-tag { background: #eee; margin: 2px; padding: 4px 8px; display: inline-block; cursor: pointer; border-radius: 4px; }
+    .airport-dropdown { position: relative; }
+    .airport-suggestions { 
+      position: absolute; 
+      top: 100%; 
+      left: 0; 
+      right: 0; 
+      background: white; 
+      border: 1px solid #ccc; 
+      border-top: none; 
+      max-height: 200px; 
+      overflow-y: auto; 
+      z-index: 1000; 
+      display: none;
+    }
+    .airport-item { 
+      padding: 10px; 
+      cursor: pointer; 
+      border-bottom: 1px solid #eee; 
+    }
+    .airport-item:hover { background: #f0f0f0; }
+    .airport-item strong { color: #0066cc; }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/airport-autocomplete-js@latest/dist/index.browser.min.js"></script>
 </head>
 <body>
   <h1>Amadeus Bokningsgenerator</h1>
@@ -24,10 +44,16 @@
   <input type="text" id="date" placeholder="t.ex. 17JUL">
 
   <label>Från (flygplats/stad):</label>
-  <input type="text" id="from">
+  <div class="airport-dropdown">
+    <input type="text" id="from" placeholder="Skriv stad eller flygplats..." autocomplete="off">
+    <div id="fromSuggestions" class="airport-suggestions"></div>
+  </div>
 
   <label>Till (flygplats/stad):</label>
-  <input type="text" id="to">
+  <div class="airport-dropdown">
+    <input type="text" id="to" placeholder="Skriv stad eller flygplats..." autocomplete="off">
+    <div id="toSuggestions" class="airport-suggestions"></div>
+  </div>
 
   <label>Kontakt (telefon):</label>
   <input type="text" id="contactPhone" placeholder="t.ex. +46701234567">
@@ -119,6 +145,125 @@
   <textarea id="output" rows="15" readonly></textarea>
 
   <script>
+    // Lista över vanliga flygplatser med IATA-koder
+    const airports = [
+      { iata: 'ARN', city: 'Stockholm', name: 'Arlanda' },
+      { iata: 'BMA', city: 'Stockholm', name: 'Bromma' },
+      { iata: 'NYO', city: 'Stockholm', name: 'Skavsta' },
+      { iata: 'VST', city: 'Stockholm', name: 'Västerås' },
+      { iata: 'GOT', city: 'Göteborg', name: 'Landvetter' },
+      { iata: 'GSE', city: 'Göteborg', name: 'Säve' },
+      { iata: 'MMX', city: 'Malmö', name: 'Sturup' },
+      { iata: 'CPH', city: 'Köpenhamn', name: 'Kastrup' },
+      { iata: 'OSL', city: 'Oslo', name: 'Gardermoen' },
+      { iata: 'BGO', city: 'Bergen', name: 'Flesland' },
+      { iata: 'TRD', city: 'Trondheim', name: 'Værnes' },
+      { iata: 'SVG', city: 'Stavanger', name: 'Sola' },
+      { iata: 'HEL', city: 'Helsingfors', name: 'Vantaa' },
+      { iata: 'TMP', city: 'Tammerfors', name: 'Pirkkala' },
+      { iata: 'KEF', city: 'Reykjavik', name: 'Keflavik' },
+      { iata: 'LHR', city: 'London', name: 'Heathrow' },
+      { iata: 'LGW', city: 'London', name: 'Gatwick' },
+      { iata: 'STN', city: 'London', name: 'Stansted' },
+      { iata: 'LTN', city: 'London', name: 'Luton' },
+      { iata: 'CDG', city: 'Paris', name: 'Charles de Gaulle' },
+      { iata: 'ORY', city: 'Paris', name: 'Orly' },
+      { iata: 'FRA', city: 'Frankfurt', name: 'Main' },
+      { iata: 'MUC', city: 'München', name: 'Franz Josef Strauss' },
+      { iata: 'TXL', city: 'Berlin', name: 'Tegel' },
+      { iata: 'BER', city: 'Berlin', name: 'Brandenburg' },
+      { iata: 'DUS', city: 'Düsseldorf', name: 'International' },
+      { iata: 'HAM', city: 'Hamburg', name: 'Helmut Schmidt' },
+      { iata: 'AMS', city: 'Amsterdam', name: 'Schiphol' },
+      { iata: 'BRU', city: 'Bryssel', name: 'Zaventem' },
+      { iata: 'ZUR', city: 'Zürich', name: 'Kloten' },
+      { iata: 'GVA', city: 'Genève', name: 'Cointrin' },
+      { iata: 'BSL', city: 'Basel', name: 'EuroAirport' },
+      { iata: 'VIE', city: 'Wien', name: 'Schwechat' },
+      { iata: 'PRG', city: 'Prag', name: 'Václav Havel' },
+      { iata: 'WAW', city: 'Warszawa', name: 'Chopin' },
+      { iata: 'FCO', city: 'Rom', name: 'Fiumicino' },
+      { iata: 'CIA', city: 'Rom', name: 'Ciampino' },
+      { iata: 'MXP', city: 'Milano', name: 'Malpensa' },
+      { iata: 'LIN', city: 'Milano', name: 'Linate' },
+      { iata: 'VCE', city: 'Venedig', name: 'Marco Polo' },
+      { iata: 'NAP', city: 'Neapel', name: 'Capodichino' },
+      { iata: 'MAD', city: 'Madrid', name: 'Barajas' },
+      { iata: 'BCN', city: 'Barcelona', name: 'El Prat' },
+      { iata: 'LIS', city: 'Lissabon', name: 'Portela' },
+      { iata: 'OPO', city: 'Porto', name: 'Francisco Sá Carneiro' },
+      { iata: 'ATH', city: 'Aten', name: 'Eleftherios Venizelos' },
+      { iata: 'IST', city: 'Istanbul', name: 'Atatürk' },
+      { iata: 'SAW', city: 'Istanbul', name: 'Sabiha Gökçen' },
+      { iata: 'ESB', city: 'Ankara', name: 'Esenboğa' },
+      { iata: 'JFK', city: 'New York', name: 'John F. Kennedy' },
+      { iata: 'LGA', city: 'New York', name: 'LaGuardia' },
+      { iata: 'EWR', city: 'New York', name: 'Newark' },
+      { iata: 'LAX', city: 'Los Angeles', name: 'International' },
+      { iata: 'SFO', city: 'San Francisco', name: 'International' },
+      { iata: 'ORD', city: 'Chicago', name: 'O\'Hare' },
+      { iata: 'MDW', city: 'Chicago', name: 'Midway' },
+      { iata: 'MIA', city: 'Miami', name: 'International' },
+      { iata: 'DFW', city: 'Dallas', name: 'Fort Worth' },
+      { iata: 'IAH', city: 'Houston', name: 'Intercontinental' },
+      { iata: 'DEN', city: 'Denver', name: 'International' },
+      { iata: 'SEA', city: 'Seattle', name: 'Tacoma' },
+      { iata: 'BOS', city: 'Boston', name: 'Logan' },
+      { iata: 'ATL', city: 'Atlanta', name: 'Hartsfield-Jackson' },
+      { iata: 'YYZ', city: 'Toronto', name: 'Pearson' },
+      { iata: 'YUL', city: 'Montreal', name: 'Trudeau' },
+      { iata: 'YVR', city: 'Vancouver', name: 'International' },
+      { iata: 'NRT', city: 'Tokyo', name: 'Narita' },
+      { iata: 'HND', city: 'Tokyo', name: 'Haneda' },
+      { iata: 'KIX', city: 'Osaka', name: 'Kansai' },
+      { iata: 'ICN', city: 'Seoul', name: 'Incheon' },
+      { iata: 'PEK', city: 'Peking', name: 'Capital' },
+      { iata: 'PVG', city: 'Shanghai', name: 'Pudong' },
+      { iata: 'HKG', city: 'Hong Kong', name: 'International' },
+      { iata: 'SIN', city: 'Singapore', name: 'Changi' },
+      { iata: 'BKK', city: 'Bangkok', name: 'Suvarnabhumi' },
+      { iata: 'DXB', city: 'Dubai', name: 'International' },
+      { iata: 'DOH', city: 'Doha', name: 'Hamad' },
+      { iata: 'CAI', city: 'Kairo', name: 'International' },
+      { iata: 'JNB', city: 'Johannesburg', name: 'Tambo' },
+      { iata: 'CPT', city: 'Kapstaden', name: 'International' },
+      { iata: 'SYD', city: 'Sydney', name: 'Kingsford Smith' },
+      { iata: 'MEL', city: 'Melbourne', name: 'Tullamarine' },
+      { iata: 'BNE', city: 'Brisbane', name: 'International' },
+      { iata: 'PER', city: 'Perth', name: 'International' },
+      { iata: 'AKL', city: 'Auckland', name: 'International' },
+      { iata: 'GRU', city: 'São Paulo', name: 'Guarulhos' },
+      { iata: 'GIG', city: 'Rio de Janeiro', name: 'Galeão' },
+      { iata: 'EZE', city: 'Buenos Aires', name: 'Ezeiza' },
+      { iata: 'SCL', city: 'Santiago', name: 'Comodoro Arturo' },
+      { iata: 'LIM', city: 'Lima', name: 'Jorge Chávez' },
+      { iata: 'BOG', city: 'Bogotá', name: 'El Dorado' },
+      { iata: 'CCS', city: 'Caracas', name: 'Simón Bolívar' },
+      { iata: 'UIO', city: 'Quito', name: 'Mariscal Sucre' },
+      { iata: 'CUN', city: 'Cancún', name: 'International' },
+      { iata: 'MEX', city: 'Mexico City', name: 'Benito Juárez' },
+      { iata: 'GDL', city: 'Guadalajara', name: 'Miguel Hidalgo' },
+      { iata: 'MTY', city: 'Monterrey', name: 'General Mariano Escobedo' },
+      { iata: 'TFS', city: 'Tenerife', name: 'Sur' },
+      { iata: 'TFN', city: 'Tenerife', name: 'Norte' },
+      { iata: 'LPA', city: 'Las Palmas', name: 'Gran Canaria' },
+      { iata: 'ACE', city: 'Lanzarote', name: 'César Manrique' },
+      { iata: 'PMI', city: 'Palma', name: 'Mallorca' },
+      { iata: 'IBZ', city: 'Ibiza', name: 'International' },
+      { iata: 'MAH', city: 'Menorca', name: 'Mahón' },
+      { iata: 'AGP', city: 'Málaga', name: 'Costa del Sol' },
+      { iata: 'SVQ', city: 'Sevilla', name: 'San Pablo' },
+      { iata: 'VLC', city: 'Valencia', name: 'Manises' },
+      { iata: 'FAO', city: 'Faro', name: 'International' },
+      { iata: 'FNC', city: 'Funchal', name: 'Cristiano Ronaldo' },
+      { iata: 'HER', city: 'Heraklion', name: 'Nikos Kazantzakis' },
+      { iata: 'CHQ', city: 'Chania', name: 'Ioannis Daskalogiannis' },
+      { iata: 'RHO', city: 'Rhodos', name: 'Diagoras' },
+      { iata: 'KOS', city: 'Kos', name: 'Hippokrates' },
+      { iata: 'CFU', city: 'Korfu', name: 'Ioannis Kapodistrias' },
+      { iata: 'ZTH', city: 'Zakynthos', name: 'Dionysios Solomos' }
+    ];
+
     const ssrSet = new Set();
 
     function renderPassengerFields() {
@@ -143,6 +288,57 @@
         `;
         container.appendChild(box);
       }
+    }
+
+    function setupAirportSearch(inputId, suggestionsId) {
+      const input = document.getElementById(inputId);
+      const suggestions = document.getElementById(suggestionsId);
+
+      input.addEventListener('input', function() {
+        const query = this.value.toLowerCase().trim();
+        suggestions.innerHTML = '';
+        
+        if (query.length < 2) {
+          suggestions.style.display = 'none';
+          return;
+        }
+
+        const matches = airports.filter(airport => 
+          airport.city.toLowerCase().includes(query) ||
+          airport.name.toLowerCase().includes(query) ||
+          airport.iata.toLowerCase().includes(query)
+        ).slice(0, 10);
+
+        if (matches.length > 0) {
+          matches.forEach(airport => {
+            const div = document.createElement('div');
+            div.className = 'airport-item';
+            div.innerHTML = `<strong>${airport.iata}</strong> - ${airport.city} (${airport.name})`;
+            div.onclick = () => {
+              input.value = `${airport.city} (${airport.iata})`;
+              input.dataset.iata = airport.iata;
+              suggestions.style.display = 'none';
+            };
+            suggestions.appendChild(div);
+          });
+          suggestions.style.display = 'block';
+        } else {
+          suggestions.style.display = 'none';
+        }
+      });
+
+      input.addEventListener('blur', function() {
+        setTimeout(() => {
+          suggestions.style.display = 'none';
+        }, 200);
+      });
+
+      input.addEventListener('focus', function() {
+        if (this.value.length >= 2) {
+          const event = new Event('input');
+          this.dispatchEvent(event);
+        }
+      });
     }
 
     function addSSR() {
@@ -196,41 +392,11 @@
       }
     }
 
-    renderPassengerFields();
-
-    window.addEventListener('DOMContentLoaded', () => {
-      const fromInput = document.getElementById('from');
-      const toInput = document.getElementById('to');
-
-      AirportInput(fromInput, {
-        placeholder: 'Skriv stad eller IATA…',
-        fuse_options: {
-          threshold: 0.3,
-          keys: [
-            { name: 'iata', weight: 0.5 },
-            { name: 'city', weight: 0.3 },
-            { name: 'name', weight: 0.2 }
-          ]
-        },
-        onSelect: (selected) => {
-          fromInput.dataset.iata = selected.iata;
-        }
-      });
-
-      AirportInput(toInput, {
-        placeholder: 'Skriv stad eller IATA…',
-        fuse_options: {
-          threshold: 0.3,
-          keys: [
-            { name: 'iata', weight: 0.5 },
-            { name: 'city', weight: 0.3 },
-            { name: 'name', weight: 0.2 }
-          ]
-        },
-        onSelect: (selected) => {
-          toInput.dataset.iata = selected.iata;
-        }
-      });
+    // Initiera allt när sidan laddas
+    document.addEventListener('DOMContentLoaded', function() {
+      renderPassengerFields();
+      setupAirportSearch('from', 'fromSuggestions');
+      setupAirportSearch('to', 'toSuggestions');
     });
   </script>
 </body>
